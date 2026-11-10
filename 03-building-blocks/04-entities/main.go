@@ -31,6 +31,15 @@ func NewBankAccount(id, owner string, transfers []Transfer) (*BankAccount, error
 		balance += transfer.amount
 	}
 
+	if id == "" {
+		return nil, fmt.Errorf("bank account id is required")
+	if owner == "" {
+		return nil, fmt.Errorf("bank account owner is required")
+	}
+	if transfers.IsZero() {
+		return nil, fmt.Errorf("no transfers provided")
+	}
+
 	return &BankAccount{
 		id:        id,
 		owner:     owner,
@@ -53,8 +62,14 @@ func (a *BankAccount) Balance() int64 {
 
 func (a *BankAccount) Deposit(amount int64) error {
 	// TODO: reject non-positive amounts.
+	if amount <= 0 {
+		return common.NewInvalidInputError(
+			"deposit amount must be positive",
+			"deposit amount must be positive",
+		)
+	}
 	a.balance += amount
-
+	
 	a.transfers = append(a.transfers, Transfer{
 		when:   time.Now(),
 		amount: amount,
@@ -65,6 +80,18 @@ func (a *BankAccount) Deposit(amount int64) error {
 
 func (a *BankAccount) Withdraw(amount int64) error {
 	// TODO: reject non-positive amounts and prevent overdraft.
+	if amount <= 0 {
+		return common.NewInvalidInputError(
+			"withdraw amount must be positive",
+			"withdraw amount must be positive",
+		)
+	}
+	if amount > a.balance {
+		return common.NewInvalidInputError(
+			"insufficient funds",
+			"withdraw amount exceeds balance",
+		)
+	}
 	a.balance -= amount
 
 	a.transfers = append(a.transfers, Transfer{
