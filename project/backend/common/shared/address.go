@@ -8,19 +8,41 @@ import (
 )
 
 type Address struct {
-	line1     string  
-	line2      string  
-	postalCode  string  
-	city        string  
-	countryCode	CountryCode 
+	line1       string
+	line2       string
+	postalCode  string
+	city        string
+	countryCode CountryCode
 }
 
-type addressDbDTO struct {
-	Line1       string      `json:"line_1"`
-	Line2       string      `json:"line_2"`
-	PostalCode  string      `json:"postal_code"`
-	City        string      `json:"city"`
-	CountryCode CountryCode `json:"country_code"`
+func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) (Address, error) {
+	if line1 == "" {
+		return Address{}, errors.New("address line 1 is required")
+	}
+
+	if postalCode == "" {
+		return Address{}, errors.New("postal code is required")
+	}
+
+	if city == "" {
+		return Address{}, errors.New("city is required")
+	}
+
+	if countryCode.IsZero() {
+		return Address{}, errors.New("country code is required")
+	}
+
+	return Address{
+		line1:       line1,
+		line2:       line2,
+		postalCode:  postalCode,
+		city:        city,
+		countryCode: countryCode,
+	}, nil
+}
+
+func (a Address) IsZero() bool {
+	return a == Address{}
 }
 
 func (a Address) Line1() string {
@@ -43,59 +65,12 @@ func (a Address) CountryCode() CountryCode {
 	return a.countryCode
 }
 
-func (a Address) MarshalJSON() ([]byte, error) {
-	m := addressDbDTO{
-		Line1: a.line1,
-		Line2: a.line2,
-		PostalCode: a.postalCode,
-		City: a.city,
-		CountryCode: a.countryCode,
-	}
-	return json.Marshal(m)
-}
-
-func (a *Address) UnmarshalJSON(data []byte) error {
-	var m addressDbDTO
-	err := json.Unmarshal(data, &m)
-	if err != nil {
-		return fmt.Errorf("error unmarshalling %T from json: %w", a, err)
-	}
-	a.line1 = m.Line1
-	a.line2 = m.Line2
-	a.postalCode = m.PostalCode
-	a.city = m.City
-	a.countryCode = m.CountryCode
-	return nil
-}
-
-func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) (Address, error) {
-	if line1 == "" {
-		return Address{}, errors.New("address line 1 is required")
-	}
-
-	if postalCode == "" {
-		return Address{}, errors.New("postal code is required")
-	}
-
-	if city == "" {
-		return Address{}, errors.New("city is required")
-	}
-
-	if countryCode.IsZero() {
-		return Address{}, errors.New("country code is required")
-	}
-
-	return Address{
-		line1: line1,
-		line2: line2,
-		postalCode: postalCode,
-		city: city,
-		countryCode: countryCode,
-	}, nil
-}
-
-func (a Address) IsZero() bool {
-	return a == Address{}
+type addressDbDTO struct {
+	Line1       string      `json:"line_1"`
+	Line2       string      `json:"line_2"`
+	PostalCode  string      `json:"postal_code"`
+	City        string      `json:"city"`
+	CountryCode CountryCode `json:"country_code"`
 }
 
 func (a *Address) Scan(src any) error {
@@ -125,4 +100,32 @@ func (a Address) Value() (driver.Value, error) {
 	}
 
 	return string(data), nil
+}
+
+func (a Address) MarshalJSON() ([]byte, error) {
+	m := addressDbDTO{
+		Line1:       a.line1,
+		Line2:       a.line2,
+		PostalCode:  a.postalCode,
+		City:        a.city,
+		CountryCode: a.countryCode,
+	}
+
+	return json.Marshal(m)
+}
+
+func (a *Address) UnmarshalJSON(data []byte) error {
+	m := addressDbDTO{}
+	err := json.Unmarshal(data, &m)
+	if err != nil {
+		return fmt.Errorf("error unmarshalling %T from json: %w", a, err)
+	}
+
+	a.line1 = m.Line1
+	a.line2 = m.Line2
+	a.postalCode = m.PostalCode
+	a.city = m.City
+	a.countryCode = m.CountryCode
+
+	return nil
 }
