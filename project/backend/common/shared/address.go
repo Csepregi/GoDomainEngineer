@@ -4,8 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
-
-	common "github.com/dianarobinson/project/backend/common/shared"
+	"eats/backend/common"
 )
 
 type Address struct {
@@ -50,13 +49,17 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 		})
 	}
 
+	if len(errDetails) > 0 {
+		return Address{}, common.NewInvalidInputError("invalid-address", "invalid-address-data",).WithDetails(errDetails)
+	}	
+
 	return Address{
 		line1:       line1,
 		line2:       line2,
 		postalCode:  postalCode,
 		city:        city,
 		countryCode: countryCode,
-	}, errDetails
+	}, nil
 }
 
 func (a Address) IsZero() bool {
