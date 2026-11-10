@@ -1,5 +1,6 @@
 package main
 
+import "errors"
 // Money is a monetary amount with a currency.
 //
 // Turn this into a proper value object:
@@ -7,11 +8,27 @@ package main
 //  2. Reject invalid inputs in NewMoney (negative amount, empty currency).
 //  3. Add an `Add` method that enforces the same-currency invariant.
 type Money struct {
-	Amount   int64
-	Currency string
+	amount   int64
+	currency string
 }
+
+func (m *Money) Amount() int64 { return m.amount }
+func (m *Money) Currency() string { return m.currency }
 
 func NewMoney(amount int64, currency string) (Money, error) {
 	// TODO: validate amount and currency.
-	return Money{Amount: amount, Currency: currency}, nil
+	if amount < 0 {
+		return Money{}, errors.New("amount must be positive")
+	}
+	if currency == "" {
+		return Money{}, errors.New("currency must be non-empty")
+	}
+	return Money{amount: amount, currency: currency}, nil
+}
+
+func (m Money) Add(other Money) (Money, error) {
+	if Currency(m) != Currency(other) {
+		return Money{}, errors.New("currencies must match")
+	}
+	return Money{ Amount: m.Amount + other.Amount, Currency: m.Currency}, nil
 }
