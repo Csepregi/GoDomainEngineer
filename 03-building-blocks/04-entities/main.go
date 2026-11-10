@@ -10,13 +10,7 @@ import (
 // BankAccount is an entity: it has an identity (ID), and its state (balance)
 // only changes through methods that enforce the invariants.
 //
-// Turn this into a proper entity:
-//  1. Reject invalid inputs in NewBankAccount (empty id, empty owner, zero transfer).
-//  2. Make Deposit reject non-positive amounts.
-//  3. Make Withdraw reject non-positive amounts and prevent overdraft.
-//
-// Encapsulation (unexported fields) is already in place. The tests in
-// main_test.go describe the target behavior.
+// The fields are unexported, so callers can't bypass the methods.
 type BankAccount struct {
 	id        string
 	owner     string
@@ -63,12 +57,12 @@ func (a *BankAccount) Balance() int64 {
 }
 
 func (a *BankAccount) Deposit(amount int64) error {
-	// TODO: reject non-positive amounts.
 	if amount <= 0 {
 		return errors.New("deposit amount must be positive")
 	}
+
 	a.balance += amount
-	
+
 	a.transfers = append(a.transfers, Transfer{
 		when:   time.Now(),
 		amount: amount,
@@ -78,13 +72,13 @@ func (a *BankAccount) Deposit(amount int64) error {
 }
 
 func (a *BankAccount) Withdraw(amount int64) error {
-	// TODO: reject non-positive amounts and prevent overdraft.
 	if amount <= 0 {
 		return errors.New("withdraw amount must be positive")
 	}
 	if amount > a.balance {
 		return errors.New("insufficient funds")
 	}
+
 	a.balance -= amount
 
 	a.transfers = append(a.transfers, Transfer{
