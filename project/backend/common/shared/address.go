@@ -3,8 +3,9 @@ package shared
 import (
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
+
+	common "github.com/dianarobinson/project/backend/common/shared"
 )
 
 type Address struct {
@@ -16,20 +17,37 @@ type Address struct {
 }
 
 func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) (Address, error) {
+	var errDetails []common.ErrorDetails
 	if line1 == "" {
-		return Address{}, errors.New("address line 1 is required")
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "address",
+			ErrorSlug:  "address-line1-required",
+			Message:    "address line 1 is required",
+		})
 	}
 
 	if postalCode == "" {
-		return Address{}, errors.New("postal code is required")
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "address",
+			ErrorSlug:  "address-postal-code-required",
+			Message:    "postal code is required",
+		})
 	}
 
 	if city == "" {
-		return Address{}, errors.New("city is required")
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "address",
+			ErrorSlug:  "address-city-required",
+			Message:    "city is required",
+		})
 	}
 
 	if countryCode.IsZero() {
-		return Address{}, errors.New("country code is required")
+		errDetails = append(errDetails, common.ErrorDetails{
+			EntityType: "address",
+			ErrorSlug:  "address-country-code-required",
+			Message:    "country code is required",
+		})
 	}
 
 	return Address{
@@ -38,7 +56,7 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 		postalCode:  postalCode,
 		city:        city,
 		countryCode: countryCode,
-	}, nil
+	}, errDetails
 }
 
 func (a Address) IsZero() bool {
