@@ -25,19 +25,21 @@ type BankAccount struct {
 }
 
 func NewBankAccount(id, owner string, transfers []Transfer) (*BankAccount, error) {
-	// TODO: validate id, owner, and transfers.
+	if id == "" {
+		return nil, errors.New("empty id")
+	}
+	if owner == "" {
+		return nil, errors.New("empty owner")
+	}
+	for d, transfer := range transfers {
+		if transfer.IsZero() {
+			return nil, fmt.Errorf("%d transfer is zero", d)
+		}
+	}
+
 	var balance int64
 	for _, transfer := range transfers {
 		balance += transfer.amount
-	}
-
-	if id == "" {
-		return nil, fmt.Errorf("bank account id is required")
-	if owner == "" {
-		return nil, fmt.Errorf("bank account owner is required")
-	}
-	if transfers.IsZero() {
-		return nil, fmt.Errorf("no transfers provided")
 	}
 
 	return &BankAccount{
@@ -63,10 +65,7 @@ func (a *BankAccount) Balance() int64 {
 func (a *BankAccount) Deposit(amount int64) error {
 	// TODO: reject non-positive amounts.
 	if amount <= 0 {
-		return common.NewInvalidInputError(
-			"deposit amount must be positive",
-			"deposit amount must be positive",
-		)
+		return errors.New("deposit amount must be positive")
 	}
 	a.balance += amount
 	
@@ -81,16 +80,10 @@ func (a *BankAccount) Deposit(amount int64) error {
 func (a *BankAccount) Withdraw(amount int64) error {
 	// TODO: reject non-positive amounts and prevent overdraft.
 	if amount <= 0 {
-		return common.NewInvalidInputError(
-			"withdraw amount must be positive",
-			"withdraw amount must be positive",
-		)
+		return errors.New("withdraw amount must be positive")
 	}
 	if amount > a.balance {
-		return common.NewInvalidInputError(
-			"insufficient funds",
-			"withdraw amount exceeds balance",
-		)
+		return errors.New("insufficient funds")
 	}
 	a.balance -= amount
 
