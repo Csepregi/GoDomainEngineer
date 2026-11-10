@@ -27,8 +27,8 @@ func NewMoney(amount int64, currency string) (Money, error) {
 }
 
 func (m Money) Add(other Money) (Money, error) {
-	if Currency(m) != Currency(other) {
+	if m.currency != other.currency {
 		return Money{}, errors.New("currencies must match")
 	}
-	return Money{ Amount: m.Amount + other.Amount, Currency: m.Currency}, nil
+	return Money{ amount: m.amount + other.amount, currency: m.currency}, nil
 }
