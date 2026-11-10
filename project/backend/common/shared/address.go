@@ -4,6 +4,7 @@ import (
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
+
 	"eats/backend/common"
 )
 
@@ -17,6 +18,7 @@ type Address struct {
 
 func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) (Address, error) {
 	var errDetails []common.ErrorDetails
+
 	if line1 == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "address",
@@ -24,7 +26,6 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 			Message:    "address line 1 is required",
 		})
 	}
-
 	if postalCode == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "address",
@@ -32,7 +33,6 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 			Message:    "postal code is required",
 		})
 	}
-
 	if city == "" {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "address",
@@ -40,7 +40,6 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 			Message:    "city is required",
 		})
 	}
-
 	if countryCode.IsZero() {
 		errDetails = append(errDetails, common.ErrorDetails{
 			EntityType: "address",
@@ -50,8 +49,11 @@ func NewAddress(line1, line2, postalCode, city string, countryCode CountryCode) 
 	}
 
 	if len(errDetails) > 0 {
-		return Address{}, common.NewInvalidInputError("invalid-address", "invalid-address-data",).WithDetails(errDetails)
-	}	
+		return Address{}, common.NewInvalidInputError(
+			"invalid-address",
+			"invalid address data",
+		).WithDetails(errDetails)
+	}
 
 	return Address{
 		line1:       line1,
