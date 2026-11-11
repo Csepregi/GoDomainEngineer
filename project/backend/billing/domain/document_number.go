@@ -1,28 +1,49 @@
 package domain
 
-import (
-	"fmt"
-	"errors"
-)
+import "fmt"
 
-// types used by the billing domain.
-
-type DocumentSeries struct{
+type DocumentSeries struct {
 	series string
 }
-type DocumentNumber struct{
-	series DocumentSeries
-	number int
+
+func NewDocumentSeries(series string) (DocumentSeries, error) {
+	if series == "" {
+		return DocumentSeries{}, fmt.Errorf("document series must not be empty")
+	}
+
+	return DocumentSeries{
+		series: series,
+	}, nil
+}
+
+func (s DocumentSeries) IsZero() bool {
+	return s.series == ""
+}
+
+func (s DocumentSeries) String() string {
+	return s.series
 }
 
 var DocumentSeriesReceipt = DocumentSeries{"R"}
 
-func (ds DocumentSeries) String() string {
-	return ds.series
+type DocumentNumber struct {
+	series DocumentSeries
+	number int
 }
 
-func (ds DocumentSeries) IsZero() bool {
-	return ds.series == ""
+func NewDocumentNumber(series DocumentSeries, number int) (DocumentNumber, error) {
+	if series.IsZero() {
+		return DocumentNumber{}, fmt.Errorf("document series must not be empty")
+	}
+
+	if number <= 0 {
+		return DocumentNumber{}, fmt.Errorf("document number must be greater than zero")
+	}
+
+	return DocumentNumber{
+		series: series,
+		number: number,
+	}, nil
 }
 
 func (d DocumentNumber) IsZero() bool {
@@ -30,22 +51,5 @@ func (d DocumentNumber) IsZero() bool {
 }
 
 func (d DocumentNumber) String() string {
-    return fmt.Sprintf("%s-%08d", d.series, d.number)
-}
-
-func NewDocumentNumber(series DocumentSeries, number int) (DocumentNumber, error) {
-	if series.IsZero() {
-		return DocumentNumber{}, fmt.Errorf("document series must not be empty")
-	}
-	if number <= 0 {
-		return DocumentNumber{}, fmt.Errorf("document number must be greater than zero")
-	}
-	return DocumentNumber{series: series, number: number}, nil
-}
-
-func NewDocumentSeries(series string) (DocumentSeries, error) {
-	if series == "" {
-		return DocumentSeries{}, errors.New("document series must not be empty")
-	}
-	return DocumentSeries{series: series}, nil
+	return fmt.Sprintf("%s-%08d", d.series, d.number)
 }
