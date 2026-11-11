@@ -33,19 +33,19 @@ func (d DocumentNumber) String() string {
     return fmt.Sprintf("%s-%08d", d.series, d.number)
 }
 
-func NewDocumentNumber(number int, series DocumentSeries) (DocumentNumber, error) {
+func NewDocumentNumber(series DocumentSeries, number int) (DocumentNumber, error) {
 	if series.IsZero() {
-		return DocumentNumber{}, errors.New("document series must not be empty")
+		return DocumentNumber{}, fmt.Errorf("document series must not be empty")
 	}
-	if number < 1 {
-		return DocumentNumber{}, errors.New("document number must be greater than zero")
+	if number <= 0 {
+		return DocumentNumber{}, fmt.Errorf("document number must be greater than zero")
 	}
 	return DocumentNumber{series: series, number: number}, nil
 }
 
 func NewDocumentSeries(series string) (DocumentSeries, error) {
-	if len(series) != 1 {
-		return DocumentSeries{}, errors.New("document series must be exactly 1 character")
+	if series == "" {
+		return DocumentSeries{}, errors.New("document series must not be empty")
 	}
 	return DocumentSeries{series: series}, nil
 }
