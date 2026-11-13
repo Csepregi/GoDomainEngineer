@@ -3,7 +3,6 @@ package db
 import (
 	"context"
 	"fmt"
-
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/jackc/pgx/v5"
 	"eats/backend/billing/adapters/db/dbmodels"
@@ -51,7 +50,13 @@ func (r *PostgresRepository) CreateDocument(
 			DocumentNumber: docNumber.String(),
 			SeriesPrefix: series.String(),
 		})
-		return err
+		if err != nil {
+			return fmt.Errorf("failed to save document: %w", err)
+		}
+		return nil
 	})
+	if err != nil {
+		return domain.DocumentUUID{}, err
+	}
 	return document.UUID, err
-}
+	}
