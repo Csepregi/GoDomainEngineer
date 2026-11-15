@@ -3,6 +3,8 @@ package shared
 import (
 	"database/sql/driver"
 	"fmt"
+	"errors"
+	"unicode"
 )
 
 type TaxID struct {
@@ -15,6 +17,24 @@ func (t TaxID) IsZero() bool {
 
 func (t TaxID) String() string {
 	return t.taxID
+}
+
+func NewTaxID(taxID string) (TaxID, error) {
+	if taxID == "" {
+		return TaxID{}, errors.New("taxID is required")
+	}
+
+	if len(taxID) != 5 {
+		return TaxID{}, errors.New("taxID must be 5 characters long")
+	}
+
+	for _, r := range taxID {
+		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != ' ' {
+			return TaxID{}, errors.New("taxID contains invalid characters")
+		}
+	}	
+
+	return TaxID{taxID: taxID}, nil
 }
 
 // Scan accepts any value from the database without validation.
