@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
-
+	"github.com/jackc/pgx/v5/pgconn"
+	"github.com/jackc/pgerrcode"
 	backoff "github.com/cenkalti/backoff/v5"
 	pgx "github.com/jackc/pgx/v5"
 )
@@ -93,4 +94,18 @@ func updateInTx(
 	}()
 
 	return fn(ctx, tx)
+}
+
+
+func IsUniqueViolationError(err error, constraint string) bool {
+    if err == nil {
+        return false
+    }
+
+    var pgErr *pgconn.PgError
+    if errors.As(err, &pgErr) {
+        return pgErr.Code == pgerrcode.UniqueViolation && pgErr.ConstraintName == constraint
+    }
+
+    return false
 }

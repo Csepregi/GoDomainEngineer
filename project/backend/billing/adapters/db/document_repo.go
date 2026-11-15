@@ -14,6 +14,7 @@ import (
 
 type DocumentRecord struct {
 	UUID domain.DocumentUUID
+	ExternalReference *string
 }
 
 type PostgresRepository struct {
@@ -32,7 +33,7 @@ func (r *PostgresRepository) CreateDocument(
 	createFunc func(documentNumber domain.DocumentNumber) (DocumentRecord, error),
 ) (domain.DocumentUUID, error) {
 	var docUUID domain.DocumentUUID
-
+	var externalReference string
 	// ReadCommitted is safe here: NextDocumentNumber uses "last_number = last_number + 1",
 	// so PostgreSQL re-evaluates the expression on the current row value after acquiring
 	// the row lock. There is no lost update risk because no value is read into Go memory
@@ -57,10 +58,15 @@ func (r *PostgresRepository) CreateDocument(
 
 		docUUID = record.UUID
 
+		if record.ExternalReference != nil {
+			externalReference = *record.ExternalReference
+		}
+
 		err = queries.SaveDocument(ctx, dbmodels.SaveDocumentParams{
 			DocumentUuid:   record.UUID,
 			DocumentNumber: docNumber.String(),
 			SeriesPrefix:   series.String(),
+			ExternalReference: record.ExternalReference,
 		})
 		if err != nil {
 			return fmt.Errorf("error saving document: %w", err)
@@ -69,8 +75,19 @@ func (r *PostgresRepository) CreateDocument(
 		return nil
 	})
 	if err != nil {
-		return domain.DocumentUUID{}, err
+		if common.IsUniqueViolationError(err, "documents_external_reference_key") {
+			queries := dbmodels.New(r.db)
+			existingDoc, err := queries.GetDocumentByExternalReference(ctx, &externalReference)
+			if err != nil {
+				return domain.DocumentUUID{}, fmt.Errorf("error getting document by external reference: %w", err)
+			}
+			return existingDoc.DocumentUuid, nil
+		} else {
+			return domain.DocumentUUID{}, err
+		}
 	}
 
 	return docUUID, nil
+
+	
 }
