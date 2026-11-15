@@ -3,7 +3,7 @@ package domain
 import (
 	"errors"
 	"time"
-
+	"fmt"
 	"eats/backend/common"
 	"eats/backend/common/shared"
 )
@@ -30,11 +30,6 @@ type Document struct {
 	lineItems []LineItem
 }
 
-type LineItem struct {
-	uuidID LineItemUUID
-	name string
-	quantity int
-}
 
 
 
@@ -57,17 +52,17 @@ var DocumentTypeReceipt = common.MustEnum[DocumentType]("receipt")
 
 func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, error) {
 	if data.Buyer.IsZero() {
-	return nil, errors.New("buyer can't be empty")
-}
+		return nil, errors.New("buyer can't be empty")
+	}
 	if data.Seller.IsZero() {
 		return nil, errors.New("seller can't be empty")
 	}
-	if shared.TaxID && data.Seller.TaxID() != nil {
-		return nil, errors.New("seller must have a tax ID")
+	if data.Buyer.TaxID() != nil {
+		return nil, errors.New("receipts cannot be issued to buyers with a tax ID")
 	}
 
-	if shared.TaxID && !data.Buyer.TaxID().IsZero() {
-		return nil, errors.New("receipts cannot be issued to buyers with a tax ID")
+	if data.Seller.TaxID() == nil {
+		return nil, errors.New("seller must have a tax ID to issue billing documents")
 	}
 
 	if data.Currency.IsZero() {
@@ -79,25 +74,34 @@ func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, erro
 	}
 
 	if data.IssueDate.After(time.Now()) {
-		return nil, errors.New("issue date cannot be in the future")
+		return nil, errors.New("issue date can't be in the future.")
 	}
 
-	if len(data.lineItems) == 0 {
-		return nil, errors.New("at least one line item")
+	if len(data.LineItems) == 0 {
+		return nil, errors.New("document must have at least one line item")
 	}
 
-	for _, lineItem := range data.lineItems {
-		if lineItem.name == "" {
-			return nil, errors.New("name can't be empty")
+
+	lineItems := make([]LineItem, 0, len(data.LineItems))
+	for _, lid := range data.LineItems {
+		lineItem, err := newLineItem(lid)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create line item for document: %w", err)
 		}
-		if lineItem.quantity <= 0 {
-			return nil, errors.New("quantity must be positive")
-		}
+		lineItems = append(lineItems, lineItem)
 	}
 
 	return &Document{
-		uuid: data.uuid,
-	}
+		uuid: DocumentUUID{common.NewUUIDv7()},
+		externalReference: data.ExternalReference,
+		documentType: DocumentTypeReceipt,
+		documentNumber: docNumber,
+		issueDate: data.IssueDate,
+		currency: data.Currency,
+		seller: data.Seller,
+		buyer: data.Buyer,
+		lineItems: lineItems,
+	}, nil
 }
 
 type DocumentUUID struct {
@@ -108,58 +112,74 @@ type LineItemUUID struct {
 	common.UUID
 }
 
+type LineItem struct {
+	uuidID LineItemUUID
+	name string
+	quantity int
+}
 
-func uuid() DocumentUUID {
-	return DocumentUUID{
-		common.UUID: common.NewUUIDv7(),
+
+
+func newLineItem(data NewLineItemData) (LineItem, error) {
+	if data.Name == "" {
+		return LineItem{}, errors.New("name can't be empty")
 	}
-}
 
-func externalReference() *string {
-	return nil
-}
-
-func documentType() DocumentType {
-	return DocumentType{
-		common.Enum[DocumentTypeValues]: DocumentTypeReceipt,
+	if data.Quantity < 1 {
+		return LineItem{}, errors.New("quantity must be positive")
 	}
+
+	return LineItem{
+		uuidID:   LineItemUUID{common.NewUUIDv7()},
+		name:     data.Name,
+		quantity: data.Quantity,
+	}, nil
 }
 
-func documentNumber() DocumentNumber {
-	return DocumentNumber{
-		number: "1234567890",
-	}
+func (d *Document) UUID() DocumentUUID {
+	return d.uuid
 }
 
-func issueDate() time.Time {
-	return time.Now()
+func (d *Document) ExternalReference() *string {
+	return d.externalReference
 }
 
-func currency() shared.Currency {
-	return shared.Currency{
-		code: "USD",
-	}
+func (d *Document) DocumentType() DocumentType {
+	return d.documentType
 }
 
-func seller() LegalEntity {
-	return LegalEntity{
-		name: "Test Seller",
-		address: shared.Address{
-			street: "123 Main St",
-			city: "Anytown",
-			state: "CA",
-			zip: "12345",
-		},
-		taxID: &shared.TaxID{
-			taxID: "1234567890",
-		},
-	}
+func (d *Document) DocumentNumber() DocumentNumber {
+	return d.documentNumber
 }
 
-func name() string {
-	return "Test Name"
+func (d *Document) Seller() LegalEntity {
+	return d.seller
 }
 
-func quantity() int {
-	return 1
+func (d *Document) Buyer() LegalEntity {
+	return d.buyer
+}
+
+func (d *Document) LineItems() []LineItem {
+	return d.lineItems
+}
+
+func (d *Document) IssueDate() time.Time {
+	return d.issueDate
+}
+
+func (d *Document) Currency() shared.Currency {
+	return d.currency
+}
+
+func (l *LineItem) Name() string {
+	return l.name
+}
+
+func (l *LineItem) Quantity() int {
+	return l.quantity
+}
+
+func (l *LineItem) UUID() LineItemUUID {
+	return l.uuidID
 }
