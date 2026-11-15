@@ -19,13 +19,15 @@ func (t TaxID) String() string {
 	return t.taxID
 }
 
+const minTaxIDLength = 5
+
 func NewTaxID(taxID string) (TaxID, error) {
 	if taxID == "" {
 		return TaxID{}, errors.New("taxID is required")
 	}
 
-	if len(taxID) != 5 {
-		return TaxID{}, errors.New("taxID must be 5 characters long")
+	if len(taxID) < minTaxIDLength {
+		return TaxID{}, errors.New("taxID is too short")
 	}
 
 	for _, r := range taxID {

@@ -9,7 +9,6 @@ type LegalEntity struct {
 	name string
 	taxID *shared.TaxID
 	address shared.Address
-	isZero bool
 }
 
 func NewLegalEntity(name string, address shared.Address, taxID *shared.TaxID) (LegalEntity, error) {
@@ -26,4 +25,20 @@ func NewLegalEntity(name string, address shared.Address, taxID *shared.TaxID) (L
 		address: address,
 		taxID: taxID,
 	}, nil
+}
+
+func (l LegalEntity) Name() string {
+	return l.name
+}
+
+func (l LegalEntity) Address() shared.Address {
+	return l.address
+}
+
+func (l LegalEntity) TaxID() *shared.TaxID {
+	return l.taxID
+}
+
+func (l LegalEntity) IsZero() bool {
+	return l == LegalEntity{}
 }
