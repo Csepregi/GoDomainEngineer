@@ -2,13 +2,14 @@ package domain
 
 import (
 	"errors"
+
 	"eats/backend/common/shared"
 )
 
 type LegalEntity struct {
-	name string
-	taxID *shared.TaxID
+	name    string
 	address shared.Address
+	taxID   *shared.TaxID
 }
 
 func NewLegalEntity(name string, address shared.Address, taxID *shared.TaxID) (LegalEntity, error) {
@@ -21,9 +22,9 @@ func NewLegalEntity(name string, address shared.Address, taxID *shared.TaxID) (L
 	}
 
 	return LegalEntity{
-		name: name,
+		name:    name,
 		address: address,
-		taxID: taxID,
+		taxID:   taxID,
 	}, nil
 }
 

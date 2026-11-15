@@ -2,8 +2,8 @@ package shared
 
 import (
 	"database/sql/driver"
-	"fmt"
 	"errors"
+	"fmt"
 	"unicode"
 )
 
@@ -11,19 +11,11 @@ type TaxID struct {
 	taxID string
 }
 
-func (t TaxID) IsZero() bool {
-	return t.taxID == ""
-}
-
-func (t TaxID) String() string {
-	return t.taxID
-}
-
 const minTaxIDLength = 5
 
 func NewTaxID(taxID string) (TaxID, error) {
 	if taxID == "" {
-		return TaxID{}, errors.New("taxID is required")
+		return TaxID{}, errors.New("taxID is empty")
 	}
 
 	if len(taxID) < minTaxIDLength {
@@ -34,9 +26,19 @@ func NewTaxID(taxID string) (TaxID, error) {
 		if !unicode.IsLetter(r) && !unicode.IsDigit(r) && r != '-' && r != ' ' {
 			return TaxID{}, errors.New("taxID contains invalid characters")
 		}
-	}	
+	}
 
-	return TaxID{taxID: taxID}, nil
+	return TaxID{
+		taxID: taxID,
+	}, nil
+}
+
+func (t TaxID) IsZero() bool {
+	return t.taxID == ""
+}
+
+func (t TaxID) String() string {
+	return t.taxID
 }
 
 // Scan accepts any value from the database without validation.
