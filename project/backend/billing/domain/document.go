@@ -21,6 +21,20 @@ func (DocumentTypeValues) Values() []string {
 	return []string{"receipt"}
 }
 
+type Document struct {
+	uuid              DocumentUUID
+	externalReference *string
+	documentType      DocumentType
+	issueDate         time.Time
+	currency          shared.Currency
+	documentNumber    DocumentNumber
+	seller            LegalEntity
+	buyer             LegalEntity
+	lineItems         []LineItem
+	summary           PriceBreakdownSummary
+}
+
+
 var DocumentTypeReceipt = common.MustEnum[DocumentType]("receipt")
 
 // defaultTaxRate is the hardcoded 10% sales tax for our single-country MVP.
@@ -65,6 +79,8 @@ func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, erro
 		lineItems = append(lineItems, lineItem)
 	}
 
+	summary := summarizeLineItems(lineItems)
+
 	return &Document{
 		uuid:              DocumentUUID{common.NewUUIDv7()},
 		externalReference: data.ExternalReference,
@@ -75,6 +91,7 @@ func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, erro
 		seller:            data.Seller,
 		buyer:             data.Buyer,
 		lineItems:         lineItems,
+		summary:           summary,
 	}, nil
 }
 
@@ -97,17 +114,6 @@ type DocumentUUID struct {
 	common.UUID
 }
 
-type Document struct {
-	uuid              DocumentUUID
-	externalReference *string
-	documentType      DocumentType
-	issueDate         time.Time
-	currency          shared.Currency
-	documentNumber    DocumentNumber
-	seller            LegalEntity
-	buyer             LegalEntity
-	lineItems         []LineItem
-}
 
 func (d *Document) UUID() DocumentUUID {
 	return d.uuid
@@ -143,6 +149,10 @@ func (d *Document) Buyer() LegalEntity {
 
 func (d *Document) LineItems() []LineItem {
 	return d.lineItems
+}
+
+func (d *Document) Summary() PriceBreakdownSummary {
+	return d.summary
 }
 
 type LineItemUUID struct {

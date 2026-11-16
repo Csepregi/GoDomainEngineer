@@ -9,9 +9,39 @@ type PriceBreakdownSummary struct {
 	taxes       []TaxSummary
 }
 
+type taxRateKey struct {
+	rate    string
+	taxType string
+}
+
+func (t TaxRate) key() taxRateKey {
+	return taxRateKey{
+		rate:    t.rate.String(),
+		taxType: t.taxType.String(),
+	}
+}
+
+
+
 func summarizeLineItems(lineItems []LineItem) PriceBreakdownSummary {
-	// TODO implement me
-	return PriceBreakdownSummary{}
+	netAmount := decimal.Zero
+	taxAmount := decimal.Zero
+	grossAmount := decimal.Zero
+	
+
+	for _, lineItem := range lineItems {
+		breakdown := lineItem.PriceBreakdown()
+		netAmount = netAmount.Add(breakdown.NetAmount())
+		taxAmount = taxAmount.Add(breakdown.TaxAmount())
+		grossAmount = grossAmount.Add(breakdown.GrossAmount())
+	}
+
+	return PriceBreakdownSummary{
+		netAmount:   netAmount,
+		taxAmount:   taxAmount,
+		grossAmount: grossAmount,
+		taxes:       newGroupedTaxes(lineItems),
+	}
 }
 
 func (p PriceBreakdownSummary) NetAmount() decimal.Decimal {
@@ -46,4 +76,46 @@ func (t TaxSummary) NetAmount() decimal.Decimal {
 
 func (t TaxSummary) TaxAmount() decimal.Decimal {
 	return t.taxAmount
+}
+
+
+func newTaxSummary(priceBreakdown PriceBreakdown) *TaxSummary {
+	return &TaxSummary{
+		taxRate:   priceBreakdown.TaxRate(),
+		netAmount: priceBreakdown.NetAmount(),
+		taxAmount: priceBreakdown.TaxAmount(),
+	}
+}
+
+func (t *TaxSummary) add(priceBreakdown PriceBreakdown) {
+	t.netAmount = t.netAmount.Add(priceBreakdown.NetAmount())
+	t.taxAmount = t.taxAmount.Add(priceBreakdown.TaxAmount())
+}
+
+func newGroupedTaxes(lineItems []LineItem) []TaxSummary {
+	taxes := map[taxRateKey]*TaxSummary{}
+
+	for _, l := range lineItems {
+		price := l.PriceBreakdown()
+		key := price.rate.key()
+
+		summary, ok := taxes[key]
+		if ok {
+			summary.add(price)
+		} else {
+			taxes[key] = newTaxSummary(price)
+		}
+	}
+
+	keys := make([]taxRateKey, 0, len(taxes))
+	for k := range taxes {
+		keys = append(keys, k)
+	}
+
+	result := make([]TaxSummary, 0, len(taxes))
+	for _, k := range keys {
+		result = append(result, *taxes[k])
+	}
+
+	return result
 }
