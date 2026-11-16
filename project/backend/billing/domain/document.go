@@ -21,20 +21,6 @@ func (DocumentTypeValues) Values() []string {
 	return []string{"receipt"}
 }
 
-type Document struct {
-	uuid              DocumentUUID
-	externalReference *string
-	documentType      DocumentType
-	issueDate         time.Time
-	currency          shared.Currency
-	documentNumber    DocumentNumber
-	seller            LegalEntity
-	buyer             LegalEntity
-	lineItems         []LineItem
-	summary           PriceBreakdownSummary
-}
-
-
 var DocumentTypeReceipt = common.MustEnum[DocumentType]("receipt")
 
 // defaultTaxRate is the hardcoded 10% sales tax for our single-country MVP.
@@ -114,6 +100,18 @@ type DocumentUUID struct {
 	common.UUID
 }
 
+type Document struct {
+	uuid              DocumentUUID
+	externalReference *string
+	documentType      DocumentType
+	issueDate         time.Time
+	currency          shared.Currency
+	documentNumber    DocumentNumber
+	seller            LegalEntity
+	buyer             LegalEntity
+	lineItems         []LineItem
+	summary           PriceBreakdownSummary
+}
 
 func (d *Document) UUID() DocumentUUID {
 	return d.uuid

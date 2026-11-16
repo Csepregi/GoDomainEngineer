@@ -2,6 +2,11 @@ package domain
 
 import "github.com/shopspring/decimal"
 
+type taxRateKey struct {
+	rate    string
+	taxType string
+}
+
 type PriceBreakdownSummary struct {
 	netAmount   decimal.Decimal
 	taxAmount   decimal.Decimal
@@ -9,31 +14,16 @@ type PriceBreakdownSummary struct {
 	taxes       []TaxSummary
 }
 
-type taxRateKey struct {
-	rate    string
-	taxType string
-}
-
-func (t TaxRate) key() taxRateKey {
-	return taxRateKey{
-		rate:    t.rate.String(),
-		taxType: t.taxType.String(),
-	}
-}
-
-
-
 func summarizeLineItems(lineItems []LineItem) PriceBreakdownSummary {
 	netAmount := decimal.Zero
 	taxAmount := decimal.Zero
 	grossAmount := decimal.Zero
-	
 
-	for _, lineItem := range lineItems {
-		breakdown := lineItem.PriceBreakdown()
-		netAmount = netAmount.Add(breakdown.NetAmount())
-		taxAmount = taxAmount.Add(breakdown.TaxAmount())
-		grossAmount = grossAmount.Add(breakdown.GrossAmount())
+	for _, l := range lineItems {
+		price := l.PriceBreakdown()
+		netAmount = netAmount.Add(price.NetAmount())
+		taxAmount = taxAmount.Add(price.TaxAmount())
+		grossAmount = grossAmount.Add(price.GrossAmount())
 	}
 
 	return PriceBreakdownSummary{
@@ -66,6 +56,14 @@ type TaxSummary struct {
 	taxAmount decimal.Decimal
 }
 
+func newTaxSummary(price PriceBreakdown) *TaxSummary {
+	return &TaxSummary{
+		taxRate:   price.TaxRate(),
+		netAmount: price.NetAmount(),
+		taxAmount: price.TaxAmount(),
+	}
+}
+
 func (t TaxSummary) TaxRate() TaxRate {
 	return t.taxRate
 }
@@ -78,18 +76,11 @@ func (t TaxSummary) TaxAmount() decimal.Decimal {
 	return t.taxAmount
 }
 
-
-func newTaxSummary(priceBreakdown PriceBreakdown) *TaxSummary {
-	return &TaxSummary{
-		taxRate:   priceBreakdown.TaxRate(),
-		netAmount: priceBreakdown.NetAmount(),
-		taxAmount: priceBreakdown.TaxAmount(),
-	}
-}
-
-func (t *TaxSummary) add(priceBreakdown PriceBreakdown) {
-	t.netAmount = t.netAmount.Add(priceBreakdown.NetAmount())
-	t.taxAmount = t.taxAmount.Add(priceBreakdown.TaxAmount())
+// TaxSummary is immutable except for add.
+// Note that it's unexported, so it can't be modified from outside the package.
+func (t *TaxSummary) add(price PriceBreakdown) {
+	t.netAmount = t.netAmount.Add(price.NetAmount())
+	t.taxAmount = t.taxAmount.Add(price.TaxAmount())
 }
 
 func newGroupedTaxes(lineItems []LineItem) []TaxSummary {
