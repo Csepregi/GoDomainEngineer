@@ -1,7 +1,6 @@
 package domain
 
 import (
-	"errors"
 
 	"github.com/shopspring/decimal"
 
@@ -63,17 +62,17 @@ func NewPriceBreakdownFromNetAmount(
 		return PriceBreakdown{}, common.NewInvalidInputError("unit-net-amount-negative", "unit net amount cannot be negative")
 	}
 	if quantity <= 0 {
-		return PriceBreakdown{}, common.NewInvalidInputError("quantity-zero", "quantity cannot be zero")
+		return PriceBreakdown{}, common.NewInvalidInputError("quantity-not-positive", "quantity must be positive")
 	}
 
-	unitNetAmount := roundInCurrency(unitNetAmount, currency)
+	unitNetAmount = roundInCurrency(unitNetAmount, currency)
 	unitTaxAmount := roundInCurrency(unitNetAmount.Mul(rate.Rate()), currency)
-	unitGrossAmount := unitNetAmount.Add(roundedUnitTaxAmount)
+	unitGrossAmount := unitNetAmount.Add(unitTaxAmount)
 
     q := decimal.NewFromInt(int64(quantity))
-	netAmount := unitNetAmount.Mul(quantity)
-	taxAmount := unitTaxAmount.Mul(quantity)
-	grossAmount := unitGrossAmount.Mul(quantity)
+	netAmount := unitNetAmount.Mul(q)
+	taxAmount := unitTaxAmount.Mul(q)
+	grossAmount := unitGrossAmount.Mul(q)
 
 	return PriceBreakdown{
 		rate:            rate,
@@ -92,14 +91,18 @@ func NewPriceBreakdownFromGrossAmount(
 	currency shared.Currency,
 	quantity int,
 ) (PriceBreakdown, error) {
+	if rate.IsZero() {
+		return PriceBreakdown{}, common.NewInvalidInputError("tax-rate-zero", "tax rate cannot be zero")
+	}
+
 	if unitGrossAmount.IsNegative() {
 		return PriceBreakdown{}, common.NewInvalidInputError("unit-gross-amount-negative", "unit gross amount cannot be negative")
 	}
 	if quantity <= 0 {
-		return PriceBreakdown{}, common.NewInvalidInputError("quantity-zero", "quantity cannot be zero")
+		return PriceBreakdown{}, common.NewInvalidInputError("quantity-not-positive", "quantity must be positive")
 	}
 
-	unitGrossAmount := roundInCurrency(unitGrossAmount, currency)
+	unitGrossAmount = roundInCurrency(unitGrossAmount, currency)
 	unitNetAmount := roundInCurrency(unitGrossAmount.Div(decimal.NewFromInt(1).Add(rate.Rate())), currency)
 	unitTaxAmount := unitGrossAmount.Sub(unitNetAmount)
 

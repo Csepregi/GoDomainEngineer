@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"time"
 	"github.com/shopspring/decimal"
-	
 	"eats/backend/common"
 	"eats/backend/common/shared"
 )
@@ -57,7 +56,7 @@ func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, erro
 
 	lineItems := make([]LineItem, 0, len(data.LineItems))
 	for _, lid := range data.LineItems {
-		lineItem, err := newLineItem(lid)
+		lineItem, err := newLineItem(lid, data.Currency, defaultTaxRate)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create line item for document: %w", err)
 		}
@@ -162,7 +161,7 @@ type LineItemUUID struct {
 }
 
 
-func newLineItem(data NewLineItemData) (LineItem, error) {
+func newLineItem(data NewLineItemData, currency shared.Currency, taxRate TaxRate) (LineItem, error) {
 	if data.Name == "" {
 		return LineItem{}, errors.New("name can't be empty")
 	}
@@ -171,9 +170,15 @@ func newLineItem(data NewLineItemData) (LineItem, error) {
 		return LineItem{}, errors.New("quantity must be positive")
 	}
 
+	amount := data.UnitAmount.Amount()
+	if amount.IsNegative() {
+		return LineItem{}, errors.New("unit amount can't be negative")
+	}
+
+
 
 	if data.UnitAmount.IsGross() {
-		priceBreakdown, err := NewPriceBreakdownFromGrossAmount(defaultTaxRate, data.UnitAmount, currency, data.Quantity)
+		priceBreakdown, err := NewPriceBreakdownFromGrossAmount(defaultTaxRate, data.UnitAmount.Amount(), currency, data.Quantity)
 		if err != nil {
 			return LineItem{}, fmt.Errorf("failed to create price breakdown for line item: %w", err)
 		}
@@ -186,7 +191,7 @@ func newLineItem(data NewLineItemData) (LineItem, error) {
 	}
 
 	if data.UnitAmount.IsNet() {
-		priceBreakdown, err := NewPriceBreakdownFromNetAmount(defaultTaxRate, data.UnitAmount, currency, data.Quantity)
+		priceBreakdown, err := NewPriceBreakdownFromNetAmount(defaultTaxRate, data.UnitAmount.Amount(), currency, data.Quantity)
 		if err != nil {
 			return LineItem{}, fmt.Errorf("failed to create price breakdown for line item: %w", err)
 		}
