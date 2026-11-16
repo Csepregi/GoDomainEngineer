@@ -4,7 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
-
+	"github.com/shopspring/decimal"
+	
 	"eats/backend/common"
 	"eats/backend/common/shared"
 )
@@ -20,6 +21,12 @@ func (DocumentTypeValues) Values() []string {
 }
 
 var DocumentTypeReceipt = common.MustEnum[DocumentType]("receipt")
+
+var defaultTaxRate = TaxRate{
+    rate:    decimal.NewFromFloat(0.10),
+    taxType: TaxTypeSalesTax,
+}
+
 
 func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, error) {
 	if data.Buyer.TaxID() != nil {
@@ -70,6 +77,8 @@ func NewReceipt(data NewDocumentData, docNumber DocumentNumber) (*Document, erro
 	}, nil
 }
 
+
+
 type NewDocumentData struct {
 	ExternalReference *string
 	IssueDate         time.Time
@@ -82,6 +91,7 @@ type NewDocumentData struct {
 type NewLineItemData struct {
 	Name     string
 	Quantity int
+	UnitAmount shared.LineAmount
 }
 
 type DocumentUUID struct {
@@ -98,6 +108,17 @@ type Document struct {
 	seller            LegalEntity
 	buyer             LegalEntity
 	lineItems         []LineItem
+}
+
+type LineItem struct {
+	uuid     LineItemUUID
+	name     string
+	quantity int
+	priceBreakdown PriceBreakdown
+}
+
+func (l LineItem) PriceBreakdown() PriceBreakdown {
+	return l.priceBreakdown
 }
 
 func (d *Document) UUID() DocumentUUID {
@@ -140,11 +161,6 @@ type LineItemUUID struct {
 	common.UUID
 }
 
-type LineItem struct {
-	uuid     LineItemUUID
-	name     string
-	quantity int
-}
 
 func newLineItem(data NewLineItemData) (LineItem, error) {
 	if data.Name == "" {
@@ -155,11 +171,34 @@ func newLineItem(data NewLineItemData) (LineItem, error) {
 		return LineItem{}, errors.New("quantity must be positive")
 	}
 
-	return LineItem{
-		uuid:     LineItemUUID{common.NewUUIDv7()},
-		name:     data.Name,
-		quantity: data.Quantity,
-	}, nil
+
+	if data.UnitAmount.IsGross() {
+		priceBreakdown, err := NewPriceBreakdownFromGrossAmount(defaultTaxRate, data.UnitAmount, currency, data.Quantity)
+		if err != nil {
+			return LineItem{}, fmt.Errorf("failed to create price breakdown for line item: %w", err)
+		}
+		return LineItem{
+			uuid:     LineItemUUID{common.NewUUIDv7()},
+			name:     data.Name,
+			quantity: data.Quantity,
+			priceBreakdown: priceBreakdown,
+		}, nil
+	}
+
+	if data.UnitAmount.IsNet() {
+		priceBreakdown, err := NewPriceBreakdownFromNetAmount(defaultTaxRate, data.UnitAmount, currency, data.Quantity)
+		if err != nil {
+			return LineItem{}, fmt.Errorf("failed to create price breakdown for line item: %w", err)
+		}
+		return LineItem{
+			uuid:     LineItemUUID{common.NewUUIDv7()},
+			name:     data.Name,
+			quantity: data.Quantity,
+			priceBreakdown: priceBreakdown,
+		}, nil
+	}
+
+	return LineItem{}, errors.New("invalid unit amount type")
 }
 
 func (l LineItem) UUID() LineItemUUID {
