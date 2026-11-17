@@ -4,8 +4,9 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
-
+	"time"
 	"github.com/shopspring/decimal"
+	"project/shared/domain/shared"
 )
 
 var nonDigits = regexp.MustCompile(`\D+`)
@@ -79,5 +80,32 @@ func UnmarshalPriceBreakdownSummary(
 		taxAmount:   taxAmount,
 		grossAmount: grossAmount,
 		taxes:       taxes,
+	}
+}
+
+
+func UnmarshalDocument(
+	documentUUID DocumentUUID,
+	externalReference *string,
+	documentNumber DocumentNumber,
+	documentType DocumentType,
+	issueDate time.Time,
+	currency shared.Currency,
+	seller shared.LegalEntity,
+	buyer shared.LegalEntity,
+	items []LineItem,
+	summary PriceBreakdownSummary,
+) *Document {
+	return &Document{
+		documentUUID: DocumentUUID(documentUUID),
+		externalReference: &ExternalReference(externalReference),
+		documentNumber: DocumentNumber(documentNumber),
+		documentType: DocumentType(documentType),
+		issueDate: IssueDate(issueDate),
+		currency: Currency(currency),
+		seller: Company(seller),
+		buyer: Company(buyer),
+		lineItems: LineItems(items),
+		priceBreakdownSummary: PriceBreakdownSummary(summary),
 	}
 }
