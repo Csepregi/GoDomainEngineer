@@ -48,12 +48,10 @@ func (r *PostgresRepository) CreateDocument(
 			return fmt.Errorf("error creating document number: %w", err)
 		}
 
-
 		doc, err := createFunc(docNumber)
 		if err != nil {
 			return fmt.Errorf("error creating document: %w", err)
 		}
-
 
 		docUUID = doc.UUID()
 		if doc.ExternalReference() != nil {
@@ -84,8 +82,6 @@ func (r *PostgresRepository) CreateDocument(
 			return fmt.Errorf("error saving legal entity snapshot: %w", err)
 		}
 
-		
-
 		err = queries.SaveDocument(ctx, dbmodels.SaveDocumentParams{
 			DocumentUuid:      doc.UUID(),
 			ExternalReference: doc.ExternalReference(),
@@ -103,7 +99,6 @@ func (r *PostgresRepository) CreateDocument(
 		if err != nil {
 			return fmt.Errorf("error saving document: %w", err)
 		}
-
 
 		for _, lineItem := range doc.LineItems() {
 			err := queries.SaveDocumentLineItem(ctx, dbmodels.SaveDocumentLineItemParams{
@@ -125,16 +120,27 @@ func (r *PostgresRepository) CreateDocument(
 			}
 		}
 
+		for _, tax := range doc.Summary().Taxes() {
+			err := queries.SaveDocumentTaxes(ctx, dbmodels.SaveDocumentTaxesParams{
+				DocumentUuid: doc.UUID(),
+				TaxType: tax.TaxRate().TaxType(),
+				TaxRate: tax.TaxRate().Rate(),
+				NetAmount: tax.NetAmount(),
+				TaxAmount: tax.TaxAmount(),
+			})
+			if err != nil {
+				return fmt.Errorf("error saving document tax: %w", err)
+			}
+		}
 		return nil
 	})
-
 	// We can't handle this with ON CONFLICT - we have to cancel the transaction not to generate a new document number
 	if common.IsUniqueViolationError(err, "documents_external_reference_key") {
 		logger := log.FromContext(ctx)
 		logger.With("external_reference", externalReference).Info("Skipping document creation due to existing external reference")
 
 		// This is outside of transaction, but it's okay - this is a read operation
-		dbDoc, err := r.GetDocument(ctx, externalReference)
+		dbDoc, err := r.getDocumentByExternalReference(ctx, externalReference)
 		if err != nil {
 			return domain.DocumentUUID{}, fmt.Errorf("error retrieving existing document by external reference: %w", err)
 		}
@@ -148,12 +154,12 @@ func (r *PostgresRepository) CreateDocument(
 	return docUUID, nil
 }
 
-func (r *PostgresRepository) getDocumentByExternalReference(ctx context.Context, externalRef string) (dbmodels.GetDocumentRow, error) {
+func (r *PostgresRepository) getDocumentByExternalReference(ctx context.Context, externalRef string) (dbmodels.BillingDocument, error) {
 	queries := dbmodels.New(r.db)
 
 	dbDoc, err := queries.GetDocumentByExternalReference(ctx, &externalRef)
 	if err != nil {
-		return dbmodels.GetDocumentRow{}, fmt.Errorf("error getting document by external reference: %w", err)
+		return dbmodels.BillingDocument{}, fmt.Errorf("error getting document by external reference: %w", err)
 	}
 
 	return dbDoc, nil
@@ -171,24 +177,6 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 	if err != nil {
 		return nil, fmt.Errorf("error getting document line items: %w", err)
 	}
-
-	dbTaxes, err := queries.GetDocumentTaxes(ctx, docUUID)
-	if err != nil {
-		return nil, fmt.Errorf("error getting document taxes: %w", err)
-	}
-	for _, dbTax := range dbTaxes {
-		taxRate := domain.UnmarshalTaxRate(dbTax.TaxRate, dbTax.TaxType)
-		taxes = append(taxes, domain.UnmarshalTax(
-			dbTax.TaxUuid,
-			taxRate,
-			dbTax.NetAmount,
-			dbTax.TaxAmount,
-			dbTax.GrossAmount,
-		))
-	}
-
-	
-	
 
 	var lineItems []domain.LineItem
 	for _, dbLineItem := range dbLineItems {
@@ -211,18 +199,51 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 		))
 	}
 
+	var taxes []domain.TaxSummary
+
+	dbTaxes, err := queries.GetDocumentTaxes(ctx, docUUID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting document taxes: %w", err)
+	}
+	for _, dbTax := range dbTaxes {
+		taxRate := domain.UnmarshalTaxRate(dbTax.TaxRate, dbTax.TaxType)
+		taxes = append(taxes, domain.UnmarshalTaxSummary(
+			taxRate,
+			dbTax.NetAmount,
+			dbTax.TaxAmount,
+		))
+	}
+
 	summary := domain.UnmarshalPriceBreakdownSummary(
 		dbDoc.BillingDocument.TotalNetAmount,
 		dbDoc.BillingDocument.TotalTaxAmount,
 		dbDoc.BillingDocument.TotalGrossAmount,
-		nil,
+		taxes,
 	)
 
-	docSeries, err := domain.NewDocumentSeries(dbDoc.SeriesPrefix)
+	docSeries, err := domain.NewDocumentSeries(dbDoc.BillingDocument.SeriesPrefix)
 
-	docNumber, err := domain.UnmarshalDocumentNumber(docSeries, dbDoc.DocumentNumber)
+	docNumber, err := domain.UnmarshalDocumentNumber(docSeries, dbDoc.BillingDocument.DocumentNumber)
 	if err != nil {
 		return nil, fmt.Errorf("error creating document number: %w", err)
+	}
+
+	seller, err := domain.NewLegalEntity(
+		dbDoc.BillingLegalEntitySnapshot.Name,
+		dbDoc.BillingLegalEntitySnapshot.Address,
+		dbDoc.BillingLegalEntitySnapshot.TaxID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating seller legal entity: %w", err)
+	}
+
+	buyer, err := domain.NewLegalEntity(
+		dbDoc.BillingLegalEntitySnapshot_2.Name,
+		dbDoc.BillingLegalEntitySnapshot_2.Address,
+		dbDoc.BillingLegalEntitySnapshot_2.TaxID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("error creating buyer legal entity: %w", err)
 	}
 
 	doc := domain.UnmarshalDocument(
@@ -232,8 +253,8 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 		dbDoc.BillingDocument.DocumentType,
 		dbDoc.BillingDocument.IssueDate,
 		dbDoc.BillingDocument.Currency,
-		domain.LegalEntity{},
-		domain.LegalEntity{},
+		seller,
+		buyer,
 		lineItems,
 		summary,
 	)
