@@ -48,15 +48,43 @@ func (r *PostgresRepository) CreateDocument(
 			return fmt.Errorf("error creating document number: %w", err)
 		}
 
+
 		doc, err := createFunc(docNumber)
 		if err != nil {
 			return fmt.Errorf("error creating document: %w", err)
 		}
 
+
 		docUUID = doc.UUID()
 		if doc.ExternalReference() != nil {
 			externalReference = *doc.ExternalReference()
 		}
+
+		sellerUUID := common.NewUUIDv7()
+
+		err = queries.SaveLegalEntitySnapshot(ctx, dbmodels.SaveLegalEntitySnapshotParams{
+			SnapshotUuid: sellerUUID,
+			Name:         doc.Seller().Name(),
+			Address:      doc.Seller().Address(),
+			TaxID:        doc.Seller().TaxID(),
+		})
+		if err != nil {
+			return fmt.Errorf("error saving legal entity snapshot: %w", err)
+		}
+
+		buyerUUID := common.NewUUIDv7()
+
+		err = queries.SaveLegalEntitySnapshot(ctx, dbmodels.SaveLegalEntitySnapshotParams{
+			SnapshotUuid: buyerUUID,
+			Name:         doc.Buyer().Name(),
+			Address:      doc.Buyer().Address(),
+			TaxID:        doc.Buyer().TaxID(),
+		})
+		if err != nil {
+			return fmt.Errorf("error saving legal entity snapshot: %w", err)
+		}
+
+		
 
 		err = queries.SaveDocument(ctx, dbmodels.SaveDocumentParams{
 			DocumentUuid:      doc.UUID(),
@@ -69,10 +97,13 @@ func (r *PostgresRepository) CreateDocument(
 			TotalNetAmount:    doc.Summary().NetAmount(),
 			TotalTaxAmount:    doc.Summary().TaxAmount(),
 			TotalGrossAmount:  doc.Summary().GrossAmount(),
+			SellerUuid:        sellerUUID,
+			BuyerUuid:         buyerUUID,
 		})
 		if err != nil {
 			return fmt.Errorf("error saving document: %w", err)
 		}
+
 
 		for _, lineItem := range doc.LineItems() {
 			err := queries.SaveDocumentLineItem(ctx, dbmodels.SaveDocumentLineItemParams{
@@ -103,7 +134,7 @@ func (r *PostgresRepository) CreateDocument(
 		logger.With("external_reference", externalReference).Info("Skipping document creation due to existing external reference")
 
 		// This is outside of transaction, but it's okay - this is a read operation
-		dbDoc, err := r.getDocumentByExternalReference(ctx, externalReference)
+		dbDoc, err := r.GetDocument(ctx, externalReference)
 		if err != nil {
 			return domain.DocumentUUID{}, fmt.Errorf("error retrieving existing document by external reference: %w", err)
 		}
@@ -117,12 +148,12 @@ func (r *PostgresRepository) CreateDocument(
 	return docUUID, nil
 }
 
-func (r *PostgresRepository) getDocumentByExternalReference(ctx context.Context, externalRef string) (dbmodels.BillingDocument, error) {
+func (r *PostgresRepository) getDocumentByExternalReference(ctx context.Context, externalRef string) (dbmodels.GetDocumentRow, error) {
 	queries := dbmodels.New(r.db)
 
 	dbDoc, err := queries.GetDocumentByExternalReference(ctx, &externalRef)
 	if err != nil {
-		return dbmodels.BillingDocument{}, fmt.Errorf("error getting document by external reference: %w", err)
+		return dbmodels.GetDocumentRow{}, fmt.Errorf("error getting document by external reference: %w", err)
 	}
 
 	return dbDoc, nil
@@ -140,6 +171,24 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 	if err != nil {
 		return nil, fmt.Errorf("error getting document line items: %w", err)
 	}
+
+	dbTaxes, err := queries.GetDocumentTaxes(ctx, docUUID)
+	if err != nil {
+		return nil, fmt.Errorf("error getting document taxes: %w", err)
+	}
+	for _, dbTax := range dbTaxes {
+		taxRate := domain.UnmarshalTaxRate(dbTax.TaxRate, dbTax.TaxType)
+		taxes = append(taxes, domain.UnmarshalTax(
+			dbTax.TaxUuid,
+			taxRate,
+			dbTax.NetAmount,
+			dbTax.TaxAmount,
+			dbTax.GrossAmount,
+		))
+	}
+
+	
+	
 
 	var lineItems []domain.LineItem
 	for _, dbLineItem := range dbLineItems {
@@ -163,9 +212,9 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 	}
 
 	summary := domain.UnmarshalPriceBreakdownSummary(
-		dbDoc.TotalNetAmount,
-		dbDoc.TotalTaxAmount,
-		dbDoc.TotalGrossAmount,
+		dbDoc.BillingDocument.TotalNetAmount,
+		dbDoc.BillingDocument.TotalTaxAmount,
+		dbDoc.BillingDocument.TotalGrossAmount,
 		nil,
 	)
 
@@ -177,12 +226,12 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 	}
 
 	doc := domain.UnmarshalDocument(
-		dbDoc.DocumentUuid,
-		dbDoc.ExternalReference,
+		dbDoc.BillingDocument.DocumentUuid,
+		dbDoc.BillingDocument.ExternalReference,
 		docNumber,
-		dbDoc.DocumentType,
-		dbDoc.IssueDate,
-		dbDoc.Currency,
+		dbDoc.BillingDocument.DocumentType,
+		dbDoc.BillingDocument.IssueDate,
+		dbDoc.BillingDocument.Currency,
 		domain.LegalEntity{},
 		domain.LegalEntity{},
 		lineItems,

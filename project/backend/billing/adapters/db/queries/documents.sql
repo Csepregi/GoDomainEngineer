@@ -7,12 +7,13 @@ RETURNING last_number;
 
 -- name: SaveDocument :exec
 INSERT INTO billing.documents (
-    document_uuid, external_reference, document_number, series_prefix, document_type, issue_date, currency, total_net_amount, total_tax_amount, total_gross_amount
+    document_uuid, external_reference, document_number, series_prefix, document_type, issue_date, currency, total_net_amount, total_tax_amount, total_gross_amount, seller_uuid, buyer_uuid
 )
 VALUES (
     sqlc.arg(document_uuid), sqlc.arg(external_reference), sqlc.arg(document_number), sqlc.arg(series_prefix),
     sqlc.arg(document_type), sqlc.arg(issue_date), sqlc.arg(currency),
-    sqlc.arg(total_net_amount), sqlc.arg(total_tax_amount), sqlc.arg(total_gross_amount)
+    sqlc.arg(total_net_amount), sqlc.arg(total_tax_amount), sqlc.arg(total_gross_amount),
+    sqlc.arg(seller_uuid), sqlc.arg(buyer_uuid)
 );
 
 -- name: SaveDocumentLineItem :exec
@@ -37,7 +38,9 @@ INSERT INTO billing.document_line_items (
 );
 
 -- name: GetDocument :one
-SELECT * FROM billing.documents
+SELECT * FROM billing.documents, sqlc.embed(seller), sqlc(buyer)
+INNER Join billing.legal_entity_snapshots seller ON documents.seller_uuid = seller.snapshot_uuid
+INNER JOIN billing.legal_entity_snapshots buyer ON documents.buyer_uuid = buyer.snapshot_uuid
 WHERE document_uuid = $1 LIMIT 1;
 
 -- name: GetDocumentByExternalReference :one
@@ -45,4 +48,15 @@ SELECT * FROM billing.documents WHERE external_reference = $1;
 
 -- name: GetDocumentLineItems :many
 SELECT * from billing.document_line_items
+WHERE document_uuid = $1;
+
+-- name: SaveDocumentTaxes :exec
+INSERT INTO billing.document_taxes (
+    document_uuid, tax_type, tax_amount, tax_rate, net_amount, tax_amount
+) VALUES (
+    sqlc.arg(document_uuid), sqlc.arg(tax_type), sqlc.arg(tax_amount), sqlc.arg(tax_rate), sqlc.arg(net_amount), sqlc.arg(tax_amount)
+);
+
+-- name: GetDocumentTaxes :many
+SELECT * from billing.document_taxes
 WHERE document_uuid = $1;
