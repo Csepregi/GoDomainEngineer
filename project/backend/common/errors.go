@@ -29,7 +29,7 @@ func (c Error) Error() string {
 		s = fmt.Sprintf("%s, InternalError: %s", s, c.InternalError.Error())
 	}
 	if len(c.Details) > 0 {
-		s = fmt.Sprintf("%s, DocumentData: %v", s, c.Details)
+		s = fmt.Sprintf("%s, Details: %v", s, c.Details)
 	}
 
 	return s

@@ -114,12 +114,12 @@ func UnmarshalPriceBreakdownSummary(
 }
 
 func UnmarshalTaxSummary(
-	taxRate TaxRate,
+	rate TaxRate,
 	netAmount decimal.Decimal,
 	taxAmount decimal.Decimal,
 ) TaxSummary {
 	return TaxSummary{
-		taxRate:   taxRate,
+		taxRate:   rate,
 		netAmount: netAmount,
 		taxAmount: taxAmount,
 	}

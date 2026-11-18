@@ -2,6 +2,7 @@ package http
 
 import (
 	"context"
+	"fmt"
 
 	"eats/backend/common"
 	"eats/backend/common/shared"
@@ -92,7 +93,7 @@ func (h Handler) CourierGetAvailableOrders(ctx context.Context, request CourierG
 func (h Handler) RegisterCustomer(ctx context.Context, request RegisterCustomerRequestObject) (RegisterCustomerResponseObject, error) {
 	addr, err := openapiAddressToSharedAddress(request.Body.Address)
 	if err != nil {
-		return nil, common.NewInvalidInputError("invalid-address", "invalid address: %s", err)
+		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 
 	customerUUID := CustomerUUID{common.NewUUIDv7()}
@@ -216,7 +217,7 @@ func (h Handler) CustomerCreateQuote(ctx context.Context, request CustomerCreate
 
 	addr, err := openapiAddressToSharedAddress(request.Body.DeliveryAddress)
 	if err != nil {
-		return nil, common.NewInvalidInputError("invalid-address", "invalid address: %s", err)
+		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 
 	quote, err := h.service.CreateQuote(ctx, app.CreateQuote{
@@ -382,7 +383,7 @@ func (h Handler) OnboardRestaurant(ctx context.Context, request OnboardRestauran
 
 	addr, err := openapiAddressToSharedAddress(request.Body.Address)
 	if err != nil {
-		return nil, common.NewInvalidInputError("invalid-address", "invalid address: %s", err)
+		return nil, fmt.Errorf("invalid address: %w", err)
 	}
 
 	err = h.service.OnboardRestaurant(

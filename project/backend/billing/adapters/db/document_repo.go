@@ -59,6 +59,7 @@ func (r *PostgresRepository) CreateDocument(
 		}
 
 		sellerUUID := common.NewUUIDv7()
+		buyerUUID := common.NewUUIDv7()
 
 		err = queries.SaveLegalEntitySnapshot(ctx, dbmodels.SaveLegalEntitySnapshotParams{
 			SnapshotUuid: sellerUUID,
@@ -67,10 +68,8 @@ func (r *PostgresRepository) CreateDocument(
 			TaxID:        doc.Seller().TaxID(),
 		})
 		if err != nil {
-			return fmt.Errorf("error saving legal entity snapshot: %w", err)
+			return fmt.Errorf("error saving seller legal entity: %w", err)
 		}
-
-		buyerUUID := common.NewUUIDv7()
 
 		err = queries.SaveLegalEntitySnapshot(ctx, dbmodels.SaveLegalEntitySnapshotParams{
 			SnapshotUuid: buyerUUID,
@@ -79,7 +78,7 @@ func (r *PostgresRepository) CreateDocument(
 			TaxID:        doc.Buyer().TaxID(),
 		})
 		if err != nil {
-			return fmt.Errorf("error saving legal entity snapshot: %w", err)
+			return fmt.Errorf("error saving buyer legal entity: %w", err)
 		}
 
 		err = queries.SaveDocument(ctx, dbmodels.SaveDocumentParams{
@@ -121,19 +120,21 @@ func (r *PostgresRepository) CreateDocument(
 		}
 
 		for _, tax := range doc.Summary().Taxes() {
-			err := queries.SaveDocumentTaxes(ctx, dbmodels.SaveDocumentTaxesParams{
+			err := queries.SaveDocumentTax(ctx, dbmodels.SaveDocumentTaxParams{
 				DocumentUuid: doc.UUID(),
-				TaxType: tax.TaxRate().TaxType(),
-				TaxRate: tax.TaxRate().Rate(),
-				NetAmount: tax.NetAmount(),
-				TaxAmount: tax.TaxAmount(),
+				TaxType:      tax.TaxRate().TaxType(),
+				TaxRate:      tax.TaxRate().Rate(),
+				NetAmount:    tax.NetAmount(),
+				TaxAmount:    tax.TaxAmount(),
 			})
 			if err != nil {
 				return fmt.Errorf("error saving document tax: %w", err)
 			}
 		}
+
 		return nil
 	})
+
 	// We can't handle this with ON CONFLICT - we have to cancel the transaction not to generate a new document number
 	if common.IsUniqueViolationError(err, "documents_external_reference_key") {
 		logger := log.FromContext(ctx)
@@ -205,6 +206,7 @@ func (r *PostgresRepository) DocumentByUUID(ctx context.Context, docUUID domain.
 	if err != nil {
 		return nil, fmt.Errorf("error getting document taxes: %w", err)
 	}
+
 	for _, dbTax := range dbTaxes {
 		taxRate := domain.UnmarshalTaxRate(dbTax.TaxRate, dbTax.TaxType)
 		taxes = append(taxes, domain.UnmarshalTaxSummary(

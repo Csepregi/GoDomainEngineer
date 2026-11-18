@@ -37,10 +37,21 @@ INSERT INTO billing.document_line_items (
     sqlc.arg(tax_type)
 );
 
+-- name: SaveDocumentTax :exec
+INSERT INTO billing.document_taxes (document_uuid, tax_type, tax_rate, net_amount, tax_amount
+) VALUES (
+    sqlc.arg(document_uuid),
+    sqlc.arg(tax_type),
+    sqlc.arg(tax_rate),
+    sqlc.arg(net_amount),
+    sqlc.arg(tax_amount)
+ );
+
 -- name: GetDocument :one
-SELECT sqlc.embed(documents), sqlc.embed(seller), sqlc.embed(buyer) FROM billing.documents AS documents
-INNER JOIN billing.legal_entity_snapshots seller ON documents.seller_uuid = seller.snapshot_uuid
-INNER JOIN billing.legal_entity_snapshots buyer ON documents.buyer_uuid = buyer.snapshot_uuid
+SELECT sqlc.embed(documents), sqlc.embed(seller), sqlc.embed(buyer)
+FROM billing.documents AS documents
+INNER JOIN billing.legal_entity_snapshots seller ON seller.snapshot_uuid = documents.seller_uuid
+INNER JOIN billing.legal_entity_snapshots buyer ON buyer.snapshot_uuid = documents.buyer_uuid
 WHERE documents.document_uuid = $1 LIMIT 1;
 
 -- name: GetDocumentByExternalReference :one
@@ -50,13 +61,6 @@ SELECT * FROM billing.documents WHERE external_reference = $1;
 SELECT * from billing.document_line_items
 WHERE document_uuid = $1;
 
--- name: SaveDocumentTaxes :exec
-INSERT INTO billing.document_taxes (
-    document_uuid, tax_type, tax_rate, net_amount, tax_amount
-) VALUES (
-    sqlc.arg(document_uuid), sqlc.arg(tax_type), sqlc.arg(tax_rate), sqlc.arg(net_amount), sqlc.arg(tax_amount)
-);
-
 -- name: GetDocumentTaxes :many
-SELECT * from billing.document_taxes
+SELECT document_uuid, tax_rate, tax_type, net_amount, tax_amount from billing.document_taxes
 WHERE document_uuid = $1;
