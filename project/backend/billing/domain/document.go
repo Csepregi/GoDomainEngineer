@@ -1,24 +1,16 @@
 package domain
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"time"
 
 	"github.com/shopspring/decimal"
-	"context"
+
 	"eats/backend/common"
 	"eats/backend/common/shared"
 )
-
-type DocumentRepository interface {
-	DocumentByUUID(ctx context.Context, docUUID DocumentUUID) (*Document, error)
-	CreateDocument(
-		ctx context.Context,
-		series DocumentSeries,
-		createFunc func(documentNumber DocumentNumber) (*Document, error),
-	) (DocumentUUID, error)
-}
 
 type DocumentType struct {
 	common.Enum[DocumentTypeValues]
@@ -31,6 +23,15 @@ func (DocumentTypeValues) Values() []string {
 }
 
 var DocumentTypeReceipt = common.MustEnum[DocumentType]("receipt")
+
+type DocumentRepository interface {
+	DocumentByUUID(ctx context.Context, docUUID DocumentUUID) (*Document, error)
+	CreateDocument(
+		ctx context.Context,
+		series DocumentSeries,
+		createFunc func(documentNumber DocumentNumber) (*Document, error),
+	) (DocumentUUID, error)
+}
 
 // defaultTaxRate is the hardcoded 10% sales tax for our single-country MVP.
 var defaultTaxRate = TaxRate{
@@ -222,5 +223,3 @@ func (l LineItem) Quantity() int {
 func (l LineItem) PriceBreakdown() PriceBreakdown {
 	return l.breakdown
 }
-
-
