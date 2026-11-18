@@ -5,8 +5,8 @@ import (
 	"eats/backend/billing/domain"
 )
 
-type GetDocument struct {
-	GetDocumentByUUID domain.DocumentUUID
+type GetDocumentByUUID struct {
+	DocumentUUID domain.DocumentUUID
 }
 
 func (h *Handlers) GetDocumentByUUID(ctx context.Context, query GetDocumentByUUID) (*domain.Document, error) {
